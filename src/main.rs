@@ -12,8 +12,7 @@ use rtfm::app;
 use hal::{prelude::*, stm32, hal::digital::v2::OutputPin, gpio::{Output, PushPull}};
 
 use stm32_usbd::{UsbBus, UsbBusType};
-use usb_device::bus;
-use usb_device::prelude::*;
+use usb_device::{bus, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 fn configure_usb_clock() {
@@ -25,7 +24,6 @@ fn configure_usb_clock() {
 const APP: () = {
 
 	static mut LED_S: hal::gpio::gpioe::PE13<Output<PushPull>> = ();
-    static mut LED_COUNT: usize = 8;
     static mut USB_DEV: UsbDevice<'static, UsbBusType> = ();
     static mut SERIAL: SerialPort<'static, UsbBusType> = ();
 
@@ -44,14 +42,11 @@ const APP: () = {
 			.pclk2(24.mhz())
             .freeze(&mut flash.acr);
 
-        // Init USB serial
-        hprintln!("Initialising USB serial device").unwrap();
-
 		// LEDs
 		let mut gpioe = device.GPIOE.split(&mut rcc.ahb);
 		let led_s = gpioe.pe13.into_push_pull_output(&mut gpioe.moder, &mut gpioe.otyper);
-
-
+		
+		// USB pin set upp
 		let mut gpioa = device.GPIOA.split(&mut rcc.ahb);
         // BluePill board has a pull-up resistor on the D+ line.
         // Pull the D+ pin down to send a RESET condition to the USB bus.
@@ -64,6 +59,7 @@ const APP: () = {
 
 		configure_usb_clock();
 
+		// USB bus, serial conection and device set up
         *USB_BUS = Some(UsbBus::new(device.USB, (usb_dm, usb_dp)));
         let serial = SerialPort::new(USB_BUS.as_ref().unwrap());
        let usb_dev =
@@ -71,7 +67,7 @@ const APP: () = {
                 .manufacturer("Fake company")
                 .product("Serial port")
                 .serial_number("TEST")
-                .device_class(USB_CLASS_CDC)
+                .device_class(USB_CLASS_CDC) 	// set class, type of usb 
                 .build();
 
 		LED_S = led_s;
@@ -82,31 +78,35 @@ const APP: () = {
 
     #[interrupt(resources = [USB_DEV, SERIAL])]
     fn USB_HP_CAN_TX() {
-//        hprintln!("DB usb_hp_can_tx").unwrap();
         usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
     }
 
+	// systematekly trigerd for USB comunications
+	// These is time critical. Can not be bloked
     #[interrupt(resources = [USB_DEV, SERIAL, LED_S])]
     fn USB_LP_CAN_RX0() {
 		resources.LED_S.set_high().expect("expected LED to blink");
         usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
-		//hprintln!("DB usb_lp_can_rx0").unwrap();
 		resources.LED_S.set_low().expect("expected LED to blink");
     }
 };
 
+
 fn usb_poll<B: bus::UsbBus>(
     usb_dev: &mut UsbDevice<'static, B>,
     serial: &mut SerialPort<'static, B>,
-) -> bool {
-    if !usb_dev.poll(&mut [serial]) {
-        return false;
+) {
+	// wery importent call. have to be coled at least once every 10ms 
+	if !usb_dev.poll(&mut [serial]) {
+        return;
     }
 
     let mut buf = [0u8; 64];
 
     match serial.read(&mut buf) {
         Ok(count) if count > 0 => {
+			// add your enterpeter her.
+
             // Echo back in upper case
 			hprintln!("ok").unwrap();
             for c in buf[0..count].iter_mut() {
@@ -119,5 +119,4 @@ fn usb_poll<B: bus::UsbBus>(
         }
         _ => {}
     }
-	return true;
 }
