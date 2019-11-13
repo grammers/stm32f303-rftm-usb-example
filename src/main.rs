@@ -101,7 +101,8 @@ fn usb_poll<B: bus::UsbBus>(
         return;
     }
 
-    let mut buf = [0u8; 64];
+//    let mut buf = [0u8; 64];
+    let mut buf = [0u8; 8];
 
     match serial.read(&mut buf) {
         Ok(count) if count > 0 => {
