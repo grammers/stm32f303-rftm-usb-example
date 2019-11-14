@@ -21,7 +21,7 @@ const APP: () = {
 
 	struct Resources {
 		LED_S: hal::gpio::gpioe::PE13<Output<PushPull>>,
-    	USB_DEV: UsbDevice<'static, UsbBusType>,/
+    	USB_DEV: UsbDevice<'static, UsbBusType>,
 		SERIAL: SerialPort<'static, UsbBusType>,
 	}
 
