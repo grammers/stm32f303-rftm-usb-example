@@ -16,22 +16,23 @@ use usb_device::{prelude::*, bus, bus::UsbBus as UB};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 
-#[app(device = stm32f3xx_hal::stm32)]
+#[app(device = stm32f3xx_hal::stm32, peripherals = true)]
 const APP: () = {
 
-	static mut LED_S: hal::gpio::gpioe::PE13<Output<PushPull>> = ();
-    static mut USB_DEV: UsbDevice<'static, UsbBusType> = ();
-	static mut SERIAL: SerialPort<'static, UsbBusType> = ();
+	struct Resources {
+		LED_S: hal::gpio::gpioe::PE13<Output<PushPull>>,
+    	USB_DEV: UsbDevice<'static, UsbBusType>,/
+		SERIAL: SerialPort<'static, UsbBusType>,
+	}
 
-	
 	#[init]
-	fn init() {
+	fn init(cx: init::Context) -> init::LateResources {
   
   		static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
         // Cortex-M peripherals
-        let mut flash = device.FLASH.constrain();
-        let mut rcc = device.RCC.constrain();
+        let mut flash = cx.device.FLASH.constrain();
+        let mut rcc = cx.device.RCC.constrain();
         let clocks = rcc
 			.cfgr
 			.use_hse(8.mhz())
@@ -41,14 +42,13 @@ const APP: () = {
             .freeze(&mut flash.acr);
 
 		// LEDs
-		let mut gpioe = device.GPIOE.split(&mut rcc.ahb);
+		let mut gpioe = cx.device.GPIOE.split(&mut rcc.ahb);
 		let led_s = gpioe.pe13
 			.into_push_pull_output(&mut gpioe.moder, &mut gpioe.otyper);
 		
 		// USB pin set upp
-		let mut gpioa = device.GPIOA.split(&mut rcc.ahb);
-        // BluePill board has a pull-up resistor on the D+ line.
-        // Pull the D+ pin down to send a RESET condition to the USB bus.
+		// a reset is allsow requierd
+		let mut gpioa = cx.device.GPIOA.split(&mut rcc.ahb);
 		let mut usb_dp = gpioa.pa12
 			.into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
 		usb_dp.set_low().expect("could not set pin for synk");
@@ -60,7 +60,7 @@ const APP: () = {
 			.into_af14(&mut gpioa.moder, &mut gpioa.afrh);
 
 		let usb = Peripheral {
-			usb: device.USB,
+			usb: cx.device.USB,
 			pin_dm: usb_dm,
 			pin_dp: usb_dp,
 		};
@@ -68,31 +68,33 @@ const APP: () = {
 		// USB bus, serial conection and device set up
         *USB_BUS = Some(UsbBus::new(usb));
         let serial = SerialPort::new(USB_BUS.as_ref().unwrap());
-       let usb_dev =
-            UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+		let usb_dev = UsbDeviceBuilder::new(
+	   		USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
                 .manufacturer("Fake company")
                 .product("Serial port")
                 .serial_number("TEST")
                 .device_class(USB_CLASS_CDC) 	// set class, type of usb 
                 .build();
 
-		LED_S = led_s;
-		USB_DEV = usb_dev;
-		SERIAL = serial;
+		init::LateResources {
+			LED_S: led_s,
+			USB_DEV: usb_dev,
+			SERIAL: serial,
+		}
 	}
 	
-    #[interrupt(resources = [USB_DEV, SERIAL])]
-    fn USB_HP_CAN_TX() {
-        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    #[task(binds = USB_HP_CAN_TX, resources = [USB_DEV, SERIAL])]
+    fn USB_HP_CAN_TX(mut cx: USB_HP_CAN_TX::Context) {
+        usb_poll(&mut cx.resources.USB_DEV, &mut cx.resources.SERIAL);
     }
 
 	// systematekly trigerd for USB comunications
 	// These is time critical. Can not be bloked
-    #[interrupt(resources = [USB_DEV, SERIAL, LED_S])]
-    fn USB_LP_CAN_RX0() {
-		resources.LED_S.set_high().expect("expected LED to blink");
-        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
-		resources.LED_S.set_low().expect("expected LED to blink");
+    #[task(binds = USB_LP_CAN_RX0, resources = [USB_DEV, SERIAL, LED_S])]
+    fn USB_LP_CAN_RX0(mut cx: USB_LP_CAN_RX0::Context) {
+		cx.resources.LED_S.set_high().expect("expected LED to blink");
+        usb_poll(&mut cx.resources.USB_DEV, &mut cx.resources.SERIAL);
+		cx.resources.LED_S.set_low().expect("expected LED to blink");
     }
 };
 

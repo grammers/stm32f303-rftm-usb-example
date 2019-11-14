@@ -17,5 +17,6 @@ features = ["rt", "stm32f303xc",]
 git = "https://github.com/stm32-rs/stm32f3xx-hal.git"
 
 [dependencies.cortex-m-rtfm]
-version = "0.4.3"
+#version = "0.4.3"
+version = "0.5.0-beta.1"
 #features = ["timer-queue"]
