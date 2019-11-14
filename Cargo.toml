@@ -14,7 +14,7 @@ usbd-serial             = "0.1"
 [dependencies.stm32f3xx-hal]
 version = "0.3.0"
 features = ["rt", "stm32f303xc",]
-path = "../stm32f3xx-hal"
+git = "https://github.com/stm32-rs/stm32f3xx-hal.git"
 
 [dependencies.cortex-m-rtfm]
 version = "0.4.3"

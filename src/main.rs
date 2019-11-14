@@ -9,7 +9,7 @@ use cortex_m_semihosting::hprintln;
 use cortex_m::asm::delay;
 use rtfm::app;
 
-use hal::{prelude::*, stm32, hal::digital::v2::OutputPin,
+use hal::{prelude::*, hal::digital::v2::OutputPin,
 	usb::{Peripheral, UsbBus, UsbBusType},
 	gpio::{Output, PushPull}};
 use usb_device::{prelude::*, bus, bus::UsbBus as UB};
