@@ -1,6 +1,6 @@
 [package]
 name = "stm32f303-rtfm-usb-example"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Samuel Karlsson <samuel_karlsson@outlook.com>"]
 edition = "2018"
 
@@ -12,13 +12,10 @@ usb-device              = "0.2.3"
 usbd-serial             = "0.1"
 
 [dependencies.stm32f3xx-hal]
-version = "0.2.3"
-features = ["rt", "stm32f303"]
-
-[dependencies.stm32-usbd]
 version = "0.3.0"
-features = ["stm32f303xc"]
+features = ["rt", "stm32f303xc",]
+path = "../stm32f3xx-hal"
 
 [dependencies.cortex-m-rtfm]
-version = "0.4.0"
+version = "0.4.3"
 #features = ["timer-queue"]
